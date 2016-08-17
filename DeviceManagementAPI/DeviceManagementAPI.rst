@@ -1,6 +1,6 @@
 Device Management API
 =====================
-The Device Management API is a RESTful service that allows you to list, register, revoke, restore, and delete devices or applications which need to send OMF messages to the community ingress gateway.
+The Device Management API is a service that allows you to list, register, revoke, restore, and delete devices or applications which need to send OMF messages to the community ingress gateway.
 
 API Authentication and Authorization
 ====================================
@@ -19,7 +19,7 @@ The API is hosted at https://<host>/devicemanagement.  Device information is con
         "QiNamespace": "string",
         "Revoked": false,
         "ProducerToken": "string",
-		"TokenExpiration": "string"
+        "TokenExpiration": "string"
     }
 
 - **TenantId:** This identifies the owner of the device.  This is assigned by the system by looking up the tenant associated with the logged in user making the API call.
@@ -40,7 +40,7 @@ For examples on how to use the API methods, see https://<host>/swagger/ui/index
 
 
 HTTP GET
----------
+--------
 **devicemanagement/device/{deviceId}**
     
     Gets the information for a single device with the specified DeviceId.
@@ -50,7 +50,7 @@ HTTP GET
     Gets a list of all devices associated with the tenant of the current identity.
 
 HTTP POST
-----------
+---------
 **devicemanagement/device**
 
     Registers a new device or updates an existing device with properties that match the DeviceModel passed in with the message body.  Returns a DeviceModel with the system generated DeviceId and ProducerToken properties populated.
@@ -61,12 +61,12 @@ HTTP POST
 
 When registering a new device, the ``DeviceName`` and ``QiNamespace`` properties of the passed in DeviceModel must be assigned.  When editing an existing device, a valid existing ``DeviceId`` must be specified as well.
 
-If a DeviceModel for an existing device is passed in during a POST operation and the Revoked property does not match the property of the existing device, the device will be added or removed from the revocation blacklist according to the newly posted value.
+If a DeviceModel for an existing device is passed in during a POST operation and the ``Revoked`` property does not match the property of the existing device, the device will be added or removed from the revocation blacklist according to the newly posted value.
 
-If the DeviceModel passed in contains the TokenExpiration property, the generated ProducerToken will expire on that date.  If the property is not specified, the generated token will expire in 50 years, effectively never expiring.
+If the DeviceModel passed in contains the ``TokenExpiration`` property, the generated ``ProducerToken`` will expire on that date.  If the property is not specified, the generated token will never expire.
 
 HTTP PUT
----------
+--------
 **devicemanagement/device/{deviceId}/revoke**
 
     Adds the device to the revocation blacklist which prevents any client from sending OMF messages to the ingress gateway using that devices security token.  This is useful for temporarily blocking writes from a particular device.
@@ -75,17 +75,17 @@ HTTP PUT
 
     Removes a device from the revocation blacklist, allowing it to send data to the ingress gateway.
 	
-For PUTs to revoke and restore, the client does not need to pass the ``DeviceModel`` in the message body.  The deviceId in the resource path is all the information required from the client.
+For PUTs to revoke and restore, the client does not need to pass the DeviceModel in the message body.  The deviceId in the URI path is all the information required from the client.
 
 HTTP DELETE
-------------
+-----------
 **devicemanagement/device/{deviceId}**
 
     Deletes the device associated with the deviceId.  Deleting a device will revoke the security token associated with the device so that it can no longer be used.  Deletions are permanent and can not be undone.
 
 Security Tokens
 ===============
-When a device is registered using the API, a security token called the "ProducerToken" is generated and returned to the caller.  These tokens are required to be added to the headers of OMF messages that are sent to the ingress gateway from the registered device.
+When a device is registered using the API, a security token called the "producer token" is generated and returned to the caller.  These tokens are required to be added to the headers of OMF messages that are sent to the ingress gateway from the registered device.
 
 The security token contains information that uniquely identifies the device.  The following information can be found in the token:
 
@@ -95,19 +95,19 @@ The security token contains information that uniquely identifies the device.  Th
 
 - **Qi Namespace:** This identifies which Qi Namespace the device will write to.  In Qi, all writes must be assigned a namespace.
 
-- **Expiration Time**: This determines when the security token expires.  If the device has the ability to re-register with the API, it is recommended to keep this duration short and to periodically re-register before this token expires.  Doing this will reduce the time a token can be used to authenticate if the token is ever compromised.  Devices that do not have the ability to use the API to renew tokens and can store their tokens securely should choose a long expiration time.
+- **Expiration Time**: This determines when the security token expires.
 
 - **Signature:** This is a cryptographic signature that verifies that the token is legitimate and has not been tampered with.  It uses the HMAC-SHA256 algorithm.
 
 The security token generated by the API during device registration is a bearer token, meaning that any client that presents the token to the ingress gateway will be able to authenticate as that device, assuming the token is valid.  Because of this, it is imperative that the token be stored in a secure location on the device that is only accessible to the application sending data to the ingress service.  If that token is ever compromised, an unauthorized client can impersonate the device until the token expires or is revoked.
 
-This token should never be transported over an unsecure network connection.  If, for example, you have a management service that does token registration and renewal with the API and then pushes the token down to the device, make sure your network connection to the device is using SSL/TLS or other secure protocol.  The device management API is only accessible using HTTPS.
+This token should never be transported over an unsecure network connection.  If, for example, you have a seperate management service that does token registration and renewal with the API and then pushes the token down to the device which generates OMF messages, make sure your network connection to the device is using SSL/TLS or other secure protocol.  The device management API is only accessible using HTTPS.
 
 Since each OMF message contains the token, never send OMF data to a service that does not implement SSL/TLS or other secure protocol.  The community ingress gateway will not accept insecure protocol connections, but if you use a proxy or data aggregator such as a message broker, make sure connections to any services that accept your OMF messages are secure and that the services you are sending the messages to are trusted.
 
 Token Renewal
 -------------
 
-It is recommended to keep token expiration times short and to have your application renew the token before it expires.  For example, you could specify that the token expires after 24 hours and have your application renew the token every 12 hours.  By doing this, you limit the amount of time the token is valid in the event that it's ever compromised.  To renew a token you can make a POST to the API and pass in the existing device information but provide a new TokenExpiration with the desired expiration date.  The POST response will include a DeviceModel with a newly generated ProducerToken that expires on the date specified.
+It is recommended to keep token expiration times short and to have your application renew the token before it expires.  For example, you could specify that the token expires after 24 hours and have your application renew the token every 12 hours.  By doing this, you limit the amount of time the token is valid in the event that it's ever compromised.  To renew a token you can make a POST to the API and pass in the existing device information into the DeviceModel but provide a new ``TokenExpiration`` with the desired expiration date.  The POST response will include a DeviceModel with a newly generated ``ProducerToken`` that expires on the date specified.
 
 
